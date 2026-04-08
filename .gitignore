@@ -1,0 +1,13 @@
+.worktrees/
+worktrees/
+node_modules/
+.next/
+.vercel/
+coverage/
+playwright-report/
+test-results/
+.env
+.env.local
+.env.*.local
+dist/
+build/
