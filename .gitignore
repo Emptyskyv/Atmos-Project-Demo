@@ -3,6 +3,7 @@ worktrees/
 node_modules/
 .next/
 .vercel/
+.data/
 coverage/
 playwright-report/
 test-results/

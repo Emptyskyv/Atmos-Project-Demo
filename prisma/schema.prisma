@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  projects     Project[]
+  runs         Run[]
+  sessions     Session[]
+  toolCalls    ToolCall[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Project {
+  id                String      @id @default(cuid())
+  userId            String
+  name              String
+  description       String?
+  templateKey       String
+  status            String
+  deployedUrl       String?
+  vercelProjectSlug String?
+  latestSnapshotId  String?
+  latestRunId       String?
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snapshots         Snapshot[]
+  runs              Run[]
+  messages          Message[]
+  publishJobs       PublishJob[]
+  toolCalls         ToolCall[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+}
+
+model Run {
+  id                String    @id @default(cuid())
+  projectId         String
+  userId            String
+  model             String
+  status            String
+  waitingToolCallId String?
+  lastError         Json?
+  serializedState   Json?
+  project           Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  toolCalls         ToolCall[]
+  createdAt         DateTime  @default(now())
+  startedAt         DateTime?
+  finishedAt        DateTime?
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  projectId String
+  runId     String?
+  kind      String
+  payload   Json
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Snapshot {
+  id          String   @id @default(cuid())
+  projectId   String
+  storageKey  String
+  summary     String?
+  deployedUrl String?
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+}
+
+model PublishJob {
+  id          String   @id @default(cuid())
+  projectId   String
+  snapshotId  String
+  status      String
+  deployedUrl String?
+  lastError   Json?
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+}
+
+model ToolCall {
+  id             String   @id @default(cuid())
+  runId          String
+  projectId      String
+  userId         String
+  toolCallId     String   @unique
+  name           String
+  input          Json
+  status         String
+  output         Json?
+  isError        Boolean  @default(false)
+  clientSequence Int?
+  run            Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  project        Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

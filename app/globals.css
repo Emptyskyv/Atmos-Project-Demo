@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f4efe6;
+  --foreground: #22201c;
+  --surface: #f9f6ef;
+  --surface-strong: #fefcf9;
+  --border: #d7cebf;
+  --muted: #6f6658;
+  --accent: #315f63;
+  --font-ui: "Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif;
+  --font-editorial: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-ui), sans-serif;
+  line-height: 1.45;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-editorial), serif;
+}
+
+a {
+  text-decoration: none;
+}
+
+.home-hero {
+  background:
+    radial-gradient(circle at 84% 16%, rgb(49 95 99 / 18%), transparent 32%),
+    radial-gradient(circle at 16% 84%, rgb(138 119 86 / 14%), transparent 36%),
+    var(--surface);
+}
+
+.workspace-surface {
+  background: linear-gradient(180deg, #ebe4d9 0%, #ece7de 100%);
+}
+
+.workspace-panel {
+  background: var(--surface-strong);
+  border-color: var(--border);
+}
+
+.workspace-kicker {
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.73rem;
+  font-weight: 600;
+}
