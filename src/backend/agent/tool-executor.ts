@@ -1,5 +1,6 @@
 import { localWorkspace, type WorkspaceFile } from '@/src/backend/workspace/local'
 import { processManager } from '@/src/backend/workspace/process-manager'
+import { toPublicPreviewUrl } from '@/src/backend/workspace/preview-path'
 import type { ToolCallRequest, ToolResultPayload } from '@/src/shared/agent/tools/serializers'
 import type { AppRepository, RunRecord } from '@/src/backend/data/types'
 
@@ -68,7 +69,7 @@ export function createToolExecutor() {
       }
 
       const workspaceDir = await localWorkspace.ensureWorkspace(project.id, project.latestSnapshotId)
-      const currentPreviewUrl = processManager.getPreviewUrl(project.id)
+      const currentPreviewUrl = toPublicPreviewUrl(project.id, processManager.getPreviewUrl(project.id))
 
       try {
         switch (toolCall.name) {
@@ -239,7 +240,7 @@ export function createToolExecutor() {
               filesChanged: fileDelta.filesChanged,
               updatedFiles: fileDelta.updatedFiles,
               logs: toLogLines(output.logs),
-              previewUrl: output.previewUrl ?? currentPreviewUrl,
+              previewUrl: toPublicPreviewUrl(project.id, output.previewUrl) ?? currentPreviewUrl,
             }
           }
           default:

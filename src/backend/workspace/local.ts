@@ -8,6 +8,7 @@ import {
   writeFile,
 } from 'node:fs/promises'
 import path from 'node:path'
+import { resolveAppDataPath } from '@/src/backend/platform/data-root'
 import { downloadSnapshot } from '@/src/backend/storage/snapshots'
 import { fromTarGzBlob } from '@/src/frontend/workspace/tarball'
 
@@ -37,7 +38,7 @@ const IGNORED_SEGMENTS = new Set([
 ])
 
 function getDefaultWorkspaceRootDir() {
-  return path.join(process.cwd(), '.data', 'workspaces')
+  return resolveAppDataPath('workspaces')
 }
 
 function normalizeProjectId(projectId: string) {

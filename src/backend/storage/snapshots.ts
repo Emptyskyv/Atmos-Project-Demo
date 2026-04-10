@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { resolveAppDataPath } from '@/src/backend/platform/data-root'
 
 type LocalSnapshotStorageOptions = {
   rootDir?: string
@@ -70,7 +71,7 @@ function resolveStoragePath(rootDir: string, storageKey: string) {
 }
 
 function getDefaultSnapshotRootDir() {
-  return path.join(process.cwd(), '.data', 'snapshots')
+  return resolveAppDataPath('snapshots')
 }
 
 export function createLocalSnapshotStorage({ rootDir = getDefaultSnapshotRootDir() }: LocalSnapshotStorageOptions = {}) {

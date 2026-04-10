@@ -69,7 +69,8 @@ export function getTemplateFiles(templateKey: string): WorkspaceTemplateFile[] {
     },
     {
       path: 'next.config.ts',
-      contents: 'import type { NextConfig } from "next"\n\nconst nextConfig: NextConfig = {}\n\nexport default nextConfig\n',
+      contents:
+        'import type { NextConfig } from "next"\n\nconst previewBasePath = process.env.ATOMS_PREVIEW_BASE_PATH?.trim()\n\nconst nextConfig: NextConfig = previewBasePath\n  ? {\n      basePath: previewBasePath,\n    }\n  : {}\n\nexport default nextConfig\n',
     },
     {
       path: 'app/layout.tsx',

@@ -7,6 +7,7 @@ import { toTarGzBlob } from '@/src/frontend/workspace/tarball'
 import { getTemplateFiles } from '@/src/backend/workspace/templates'
 import { localWorkspace } from '@/src/backend/workspace/local'
 import { processManager } from '@/src/backend/workspace/process-manager'
+import { toPublicPreviewUrl } from '@/src/backend/workspace/preview-path'
 import { requireAuth } from '@/src/backend/api/context'
 
 const createProjectSchema = z.object({
@@ -66,7 +67,7 @@ export function buildProjectRoutes({ uploadFile = uploadSnapshot }: ProjectRoute
         latestSnapshot: latestSnapshot ?? null,
         workspace: {
           files: workspaceFiles,
-          previewUrl: processManager.getPreviewUrl(project.id),
+          previewUrl: toPublicPreviewUrl(project.id, processManager.getPreviewUrl(project.id)),
         },
       })
     })

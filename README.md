@@ -27,3 +27,36 @@
 
 Project snapshots are now stored on the local filesystem under `.data/snapshots/`.
 `VERCEL_TEAM_ID` is optional and only needed when deploying into a Vercel team scope.
+
+## Runtime storage
+
+- Local development defaults to `.data/` in the repository root.
+- Set `ATOMS_DATA_ROOT` to move snapshots and workspaces somewhere else.
+- On Railway, the app auto-detects `RAILWAY_VOLUME_MOUNT_PATH` and stores runtime data under `<volume>/atoms/`.
+
+## Railway deployment
+
+This repo now includes [`railway.json`](/Users/bytedance/atoms_project/railway.json) for Railpack builds, a health check, and a pre-deploy Prisma migration step.
+
+Recommended setup:
+
+1. Create a Railway service from this repository.
+2. Attach a persistent volume to the service. The app will automatically place snapshots and restored workspaces under the mounted volume.
+3. Set the same runtime env vars you use locally:
+   - `DATABASE_URL`
+   - `DIRECT_URL`
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_URL`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `OPENAI_API_KEY`
+   - `OPENAI_BASE_URL`
+   - `OPENAI_RESPONSES_URL` when needed
+   - `OPENAI_RUNTIME`
+   - `OPENAI_REQUEST_HEADERS` when needed
+   - `OPENAI_MODEL`
+   - `VERCEL_TOKEN`
+   - `VERCEL_TEAM_ID` when deploying into a team scope
+4. Deploy. Railway will run `npx prisma migrate deploy` before switching traffic and will health check `GET /health`.
+
+Workspace previews now proxy through `/preview/<projectId>` instead of exposing `127.0.0.1` directly. The starter Next.js workspace template reads `ATOMS_PREVIEW_BASE_PATH` so its asset URLs stay inside the proxied preview path.
