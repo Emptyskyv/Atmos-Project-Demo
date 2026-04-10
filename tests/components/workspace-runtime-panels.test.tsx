@@ -337,6 +337,12 @@ describe('workspace runtime panels', () => {
       'src',
       'https://prod-1.example.vercel.app',
     )
+    expect(screen.getByText('Published live')).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', {
+        name: /open published site/i,
+      }),
+    ).toHaveAttribute('href', 'https://prod-1.example.vercel.app')
     expect(
       screen.getByRole('link', {
         name: /open in new tab/i,

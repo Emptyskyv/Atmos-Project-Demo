@@ -64,6 +64,20 @@ function toDeployedUrl(url: string | null | undefined) {
   return url.startsWith('http') ? url : `https://${url}`
 }
 
+function toPublishedUrl(
+  deployment: {
+    url?: string | null
+    alias?: string[] | null
+  },
+  preferredAlias?: string,
+) {
+  const aliases = Array.isArray(deployment.alias) ? deployment.alias.filter(Boolean) : []
+  const selectedAlias =
+    (preferredAlias ? aliases.find((alias) => alias === preferredAlias) : null) ?? aliases[0] ?? null
+
+  return toDeployedUrl(selectedAlias ?? deployment.url)
+}
+
 function toPublishStatus(readyState: unknown): PublishJobStatus {
   switch (String(readyState).toUpperCase()) {
     case 'READY':
@@ -147,7 +161,7 @@ export function createPublishService({
         body: JSON.stringify({
           name: projectSlug,
           project: projectSlug,
-          target: 'preview',
+          target: 'production',
           projectSettings: {
             framework: 'nextjs',
           },
@@ -167,6 +181,7 @@ export function createPublishService({
         readyState?: string
         readyStateReason?: string | null
         url?: string | null
+        alias?: string[] | null
       }
       let lastStatus: PublishJobStatus | null = null
 
@@ -177,7 +192,8 @@ export function createPublishService({
         if (status !== lastStatus || terminal) {
           yield {
             status,
-            deployedUrl: status === 'ready' ? toDeployedUrl(deployment.url) : null,
+            deployedUrl:
+              status === 'ready' ? toPublishedUrl(deployment, `${projectSlug}.vercel.app`) : null,
             error: status === 'error' ? toPublishError(deployment) : null,
           }
           lastStatus = status
@@ -205,6 +221,7 @@ export function createPublishService({
           readyState?: string
           readyStateReason?: string | null
           url?: string | null
+          alias?: string[] | null
         }
       }
     },

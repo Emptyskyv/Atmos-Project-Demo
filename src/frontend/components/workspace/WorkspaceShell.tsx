@@ -96,6 +96,14 @@ export default function WorkspaceShell({ projectId }: WorkspaceShellProps) {
       setPublishedPreviewUrl(deployUrl)
     }
 
+    if (status === 'ready' && deployUrl) {
+      pushTimelineItem({
+        id: `assistant-publish-ready-${Date.now()}`,
+        role: 'assistant',
+        content: `Published live: ${deployUrl}`,
+      })
+    }
+
     if (status === 'ready' || status === 'error') {
       setIsPublishing(false)
       closePublishStream()
@@ -267,7 +275,7 @@ export default function WorkspaceShell({ projectId }: WorkspaceShellProps) {
         <section className="grid min-h-0 gap-3 md:grid-cols-3 xl:grid-cols-1 xl:grid-rows-3">
           <CodePanel activeFilePath={activeFilePath} activeFileContents={activeFileContents} />
           <TerminalPanel terminalLines={terminalLines} />
-          <PreviewPanel previewUrl={effectivePreviewUrl} />
+          <PreviewPanel previewUrl={effectivePreviewUrl} publishedUrl={publishedPreviewUrl} />
         </section>
       </div>
     </main>

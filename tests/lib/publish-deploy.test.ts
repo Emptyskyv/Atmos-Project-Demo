@@ -83,6 +83,7 @@ describe('createPublishService', () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
       name: 'proj-1',
       project: 'proj-1',
+      target: 'production',
       files: [
         { file: 'package.json', data: '{"name":"demo"}' },
         {
@@ -108,5 +109,56 @@ describe('createPublishService', () => {
         error: null,
       },
     ])
+  })
+
+  it('prefers the production alias over the generated deployment url when ready', async () => {
+    configureEnv()
+    resetEnvCaches()
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 'dpl_2',
+          readyState: 'BUILDING',
+          url: 'atoms-generated.vercel.app',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          id: 'dpl_2',
+          readyState: 'READY',
+          url: 'atoms-generated.vercel.app',
+          alias: ['atoms-live.vercel.app', 'atoms-team.vercel.app'],
+        }),
+      })
+
+    const service = createPublishService({
+      fetchImpl: fetchMock as typeof fetch,
+      loadSnapshotFiles: async () => [
+        {
+          path: 'package.json',
+          contents: '{"name":"demo"}',
+        },
+      ],
+      sleep: async () => undefined,
+    })
+
+    const events = []
+    for await (const event of service.streamPublish!({
+      publishJobId: 'pub_2',
+      projectId: 'proj_2',
+      snapshotId: 'snp_2',
+    })) {
+      events.push(event)
+    }
+
+    expect(events.at(-1)).toEqual({
+      status: 'ready',
+      deployedUrl: 'https://atoms-live.vercel.app',
+      error: null,
+    })
   })
 })
