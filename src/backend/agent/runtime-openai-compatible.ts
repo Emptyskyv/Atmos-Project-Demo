@@ -64,6 +64,17 @@ type ToolDefinition = {
   }
 }
 
+type GatewayErrorBody = {
+  error?: {
+    message?: string
+    code?: string
+    type?: string
+  }
+}
+
+const COMPAT_GATEWAY_MAX_ATTEMPTS = 3
+const RETRYABLE_GATEWAY_ERROR_CODES = new Set(['Arrearage'])
+
 const COMPAT_TOOLS: ToolDefinition[] = [
   {
     type: 'function',
@@ -292,39 +303,65 @@ async function requestChatCompletion(
   model: string,
   messages: ChatMessage[],
 ) {
-  const response = await fetchImpl(joinUrl(config.baseURL, '/chat/completions', config.defaultQuery), {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${config.apiKey}`,
-      ...config.headers,
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      stream: true,
-      temperature: 0,
-      parallel_tool_calls: false,
-      tool_choice: 'auto',
-      tools: COMPAT_TOOLS,
-    }),
-  })
+  let lastError: Error | null = null
 
-  if (!response.ok) {
-    const text = await response.text()
-    let message = text || `OpenAI-compatible request failed with ${response.status}`
-
+  for (let attempt = 1; attempt <= COMPAT_GATEWAY_MAX_ATTEMPTS; attempt++) {
     try {
-      const parsed = JSON.parse(text) as { error?: { message?: string } }
-      message = parsed.error?.message ?? message
-    } catch {
-      message = text || message
-    }
+      const response = await fetchImpl(joinUrl(config.baseURL, '/chat/completions', config.defaultQuery), {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${config.apiKey}`,
+          ...config.headers,
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          stream: true,
+          temperature: 0,
+          parallel_tool_calls: false,
+          tool_choice: 'auto',
+          tools: COMPAT_TOOLS,
+        }),
+      })
 
-    throw new Error(message)
+      if (response.ok) {
+        return response
+      }
+
+      const text = await response.text()
+      let parsed: GatewayErrorBody | null = null
+      let message = text || `OpenAI-compatible request failed with ${response.status}`
+
+      try {
+        parsed = JSON.parse(text) as GatewayErrorBody
+        message = parsed.error?.message ?? message
+      } catch {
+        message = text || message
+      }
+
+      const gatewayCode = parsed?.error?.code ?? parsed?.error?.type
+      const shouldRetry =
+        attempt < COMPAT_GATEWAY_MAX_ATTEMPTS &&
+        (response.status >= 500 ||
+          (typeof gatewayCode === 'string' && RETRYABLE_GATEWAY_ERROR_CODES.has(gatewayCode)))
+
+      if (shouldRetry) {
+        lastError = new Error(message)
+        continue
+      }
+
+      throw new Error(message)
+    } catch (error) {
+      if (attempt >= COMPAT_GATEWAY_MAX_ATTEMPTS) {
+        throw error
+      }
+
+      lastError = error instanceof Error ? error : new Error('OpenAI-compatible request failed')
+    }
   }
 
-  return response
+  throw lastError ?? new Error('OpenAI-compatible request failed')
 }
 
 function buildFreshMessages(userMessage: string) {

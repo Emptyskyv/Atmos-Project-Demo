@@ -101,7 +101,7 @@ describe('useWorkspaceState', () => {
     )
   })
 
-  it('applies write tool results into files, terminal, and preview state', async () => {
+  it('applies write tool results into files without polluting terminal history', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -166,11 +166,11 @@ describe('useWorkspaceState', () => {
     ])
     expect(result.current.activeFilePath).toBe('app/page.tsx')
     expect(result.current.activeFileContents).toContain('<main>Hello</main>')
-    expect(result.current.terminalLines).toEqual(['Wrote app/page.tsx (58 bytes)'])
+    expect(result.current.terminalLines).toEqual([])
     expect(result.current.previewUrl).toBe('http://localhost:3000')
   })
 
-  it('applies bash tool results from updatedFiles and filesChanged into workspace state', async () => {
+  it('formats bash tool results as shell history and keeps tracking changed files', async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -214,8 +214,10 @@ describe('useWorkspaceState', () => {
             command: 'pnpm install',
             exitCode: 0,
             output: 'Done in 1.2s',
+            cwd: '/workspace/demo',
           },
           isError: false,
+          durationMs: 42,
           updatedFiles: [
             {
               path: 'package.json',
@@ -251,7 +253,12 @@ describe('useWorkspaceState', () => {
     ])
     expect(result.current.activeFilePath).toBe('package.json')
     expect(result.current.activeFileContents).toBe('{\n  "name": "atoms-project"\n}\n')
-    expect(result.current.terminalLines).toEqual(['Done in 1.2s'])
+    expect(result.current.terminalLines).toEqual([
+      '[cwd] /workspace/demo',
+      '$ pnpm install',
+      '[stdout] Done in 1.2s',
+      '[exit 0] completed in 0.0s',
+    ])
     expect(result.current.previewUrl).toBe('http://localhost:3000')
 
     act(() => {
@@ -270,6 +277,7 @@ describe('useWorkspaceState', () => {
             command: 'touch README.md',
             exitCode: 0,
             output: '',
+            cwd: '/workspace/demo',
           },
           isError: false,
           filesChanged: ['README.md'],
@@ -282,7 +290,17 @@ describe('useWorkspaceState', () => {
       path: 'README.md',
       contents: '',
     })
-    expect(result.current.terminalLines).toEqual(['Done in 1.2s', 'bash completed'])
+    expect(result.current.terminalLines).toEqual([
+      '[cwd] /workspace/demo',
+      '$ pnpm install',
+      '[stdout] Done in 1.2s',
+      '[exit 0] completed in 0.0s',
+      '',
+      '[cwd] /workspace/demo',
+      '$ touch README.md',
+      '[info] Command completed with no output.',
+      '[exit 0] completed',
+    ])
     expect(result.current.previewUrl).toBe('http://localhost:3000')
   })
 })

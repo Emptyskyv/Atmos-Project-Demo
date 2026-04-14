@@ -14,11 +14,11 @@ export default async function LoginPage() {
       <section className="grid max-w-2xl gap-5">
         <p className="workspace-kicker">Atoms Studio</p>
         <h1 className="text-5xl font-semibold tracking-tight text-[var(--foreground)]">
-          Sign in to continue building with GPT-5.2
+          Sign in to pick up where you left off in Atoms Studio
         </h1>
         <p className="max-w-[58ch] text-base text-[var(--muted)]">
-          The backend agent loop, project state, and deployment history all live on the server.
-          Login unlocks your saved workspaces and run history.
+          Access your saved workspaces, revisit recent runs, and track deployment history so
+          every project is ready when you are.
         </p>
       </section>
       <section className="w-full max-w-xl">

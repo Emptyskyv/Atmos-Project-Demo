@@ -288,4 +288,81 @@ describe('createOpenAiCompatibleRuntime', () => {
     ])
     expect(fetchImpl).toHaveBeenCalledTimes(1)
   })
+
+  it('retries transient arrearage gateway errors before failing the run', async () => {
+    const repository = createMemoryRepository()
+    const run = await repository.createRun({
+      projectId: 'proj_1',
+      userId: 'usr_1',
+      model: 'gpt-5.2',
+      status: 'running',
+    })
+
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            error: {
+              message: 'Access denied, please make sure your account is in good standing.',
+              type: 'Arrearage',
+              code: 'Arrearage',
+            },
+          }),
+          {
+            status: 400,
+            headers: {
+              'content-type': 'application/json',
+            },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(
+        createSseResponse([
+          {
+            id: 'chatcmpl_retry',
+            choices: [{ index: 0, delta: { content: 'Recovered' }, finish_reason: null }],
+          },
+          {
+            id: 'chatcmpl_retry',
+            choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+          },
+          '[DONE]',
+        ]),
+      )
+
+    const runtime = createOpenAiCompatibleRuntime({
+      config: {
+        apiKey: 'sk-test',
+        baseURL: 'https://gateway.example.com/v1',
+      },
+      fetchImpl: fetchImpl as typeof fetch,
+    })
+
+    const events = []
+    for await (const event of runtime.stream({
+      repository,
+      run,
+      userMessage: 'Say recovered',
+    })) {
+      events.push(event)
+    }
+
+    expect(events).toEqual([
+      {
+        type: 'assistant_text_delta',
+        messageId: `msg_assistant_${run.id}`,
+        delta: 'Recovered',
+      },
+      {
+        type: 'assistant_text_completed',
+        messageId: `msg_assistant_${run.id}`,
+        text: 'Recovered',
+      },
+      {
+        type: 'run_completed',
+      },
+    ])
+    expect(fetchImpl).toHaveBeenCalledTimes(2)
+  })
 })

@@ -1,62 +1,162 @@
 # Atoms
 
-## Structure
+Atoms is an AI app-building workspace. Users can sign in, create a project, describe what they want in chat, inspect the generated workspace, preview the app, and publish a shareable deployment.
 
-- `app/`: thin Next.js route entrypoints only
-- `src/frontend/`: page implementations, UI components, client hooks, browser workspace runtime
-- `src/backend/`: Hono API, auth, data access, agent runtime, publish and storage services
-- `src/shared/`: contracts shared by frontend and backend
+The current platform deployment runs on Railway. User project publishing is still delegated to Vercel through the backend publish flow.
+
+## Current status
+
+Atoms is past the pure prototype stage and already has a usable product skeleton:
+
+- account registration, login, session handling, and sign-out
+- dashboard with persisted project list
+- project workspace with chat timeline, file tree, code view, terminal output, and preview panel
+- backend-driven agent runtime with REST + SSE run orchestration
+- server-side tool execution for file edits and shell commands
+- snapshot creation and publish flow
+- Railway deployment for the platform itself
+
+The main remaining gap is reliability hardening: multi-step run success rate, clearer failure handling, stronger observability, and more production-grade guardrails.
+
+## Product flow
+
+1. A user signs in and creates a project from the dashboard.
+2. The project opens in the workspace UI.
+3. The frontend starts a run, while the backend owns the agent loop and streams status updates back over SSE.
+4. Tool calls are executed on the server workspace and reflected back into the UI timeline, file tree, terminal, and preview state.
+5. When the user publishes, the current workspace is snapshotted and the backend sends that snapshot to Vercel for a public deployment.
+
+## Architecture
+
+### App structure
+
+- `app/`: thin Next.js route entrypoints
+- `src/frontend/`: pages, UI components, client hooks, browser workspace helpers
+- `src/backend/`: API routes, auth, persistence, agent runtime, publish and workspace services
+- `src/shared/`: contracts shared between frontend and backend
+
+### Runtime split
+
+- Frontend:
+  - renders the product UI
+  - consumes streamed run events
+  - shows workspace state, preview, timeline, and publish progress
+- Backend:
+  - authenticates users
+  - persists project/run/message/snapshot state
+  - owns the agent runtime
+  - executes tools against the server workspace
+  - manages publish jobs
+
+### Deployment split
+
+- Railway:
+  - hosts the Atoms platform
+  - runs migrations before deploy
+  - stores runtime workspaces and snapshots on a persistent volume
+- Vercel:
+  - receives published user projects through the deploy API
+
+## Core capabilities
+
+- Auth:
+  - email + password registration and login
+  - session-backed protected dashboard and workspace routes
+- Workspace:
+  - chat timeline
+  - tool logs
+  - file tree and code panel
+  - terminal output panel
+  - preview panel with first-party preview proxy path
+- Agent runtime:
+  - backend-managed run state
+  - OpenAI Agents SDK / OpenAI-compatible runtime selection
+  - tool execution covering `read`, `list`, `glob`, `grep`, `write`, `edit`, `applyPatch`, and `bash`
+- Persistence:
+  - PostgreSQL via Prisma for structured data
+  - filesystem-backed snapshot storage under `.data/` locally or Railway volume storage in production
+- Publishing:
+  - create snapshot from workspace
+  - start publish job
+  - poll deployment status
+  - surface public deployment URL back into the workspace
 
 ## Local development
 
 1. Copy `.env.example` to `.env.local`.
-2. For Supabase PostgreSQL, set:
-   - `DIRECT_URL` to the direct or session-pooled connection string for Prisma CLI and migrations
-   - `DATABASE_URL` to the transaction pooler string for the running app, for example `...?pgbouncer=true&connection_limit=1&schema=public`
-3. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` for browser and server Supabase clients.
-4. Fill in `OPENAI_API_KEY` and `VERCEL_TOKEN`.
-5. Set `OPENAI_BASE_URL` to the gateway's OpenAI-compatible `/v1` root, for example `https://www.openclaudecode.cn/v1`.
-6. `OPENAI_RESPONSES_URL` is optional. If you only have a full `/responses` endpoint URL, the server can derive the base API root from it.
-7. `OPENAI_RUNTIME` defaults to `auto`. Force it to `agents` when your provider requires the OpenAI Responses API, such as OpenClaw's Codex provider.
-8. `OPENAI_REQUEST_HEADERS` is optional. Set it to a JSON object when your gateway requires provider-specific headers, for example `{"Authorization":"Bearer sk-xxx","User-Agent":"codex_cli_rs/0.77.0 (Windows 10.0.26100; x86_64) WindowsTerminal"}`.
-9. `OPENAI_MODEL` can be any non-empty model id supported by your gateway, for example `glm-5`, `gpt-5.2`, or `gpt-5.3-codex`.
-10. Run `npm install`.
-11. Run `npx prisma generate`.
-12. Run `npx prisma migrate deploy`.
-13. Run `npm run dev`.
-
-Project snapshots are now stored on the local filesystem under `.data/snapshots/`.
-`VERCEL_TEAM_ID` is optional and only needed when deploying into a Vercel team scope.
-
-## Runtime storage
-
-- Local development defaults to `.data/` in the repository root.
-- Set `ATOMS_DATA_ROOT` to move snapshots and workspaces somewhere else.
-- On Railway, the app auto-detects `RAILWAY_VOLUME_MOUNT_PATH` and stores runtime data under `<volume>/atoms/`.
-
-## Railway deployment
-
-This repo now includes [`railway.json`](/Users/bytedance/atoms_project/railway.json) for Railpack builds, a health check, and a pre-deploy Prisma migration step.
-
-Recommended setup:
-
-1. Create a Railway service from this repository.
-2. Attach a persistent volume to the service. The app will automatically place snapshots and restored workspaces under the mounted volume.
-3. Set the same runtime env vars you use locally:
-   - `DATABASE_URL`
-   - `DIRECT_URL`
+2. Configure the database:
+   - `DIRECT_URL` for Prisma CLI and migrations
+   - `DATABASE_URL` for the running app
+3. Configure Supabase:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_URL`
    - `SUPABASE_SERVICE_ROLE_KEY`
+4. Configure model/runtime access:
    - `OPENAI_API_KEY`
    - `OPENAI_BASE_URL`
    - `OPENAI_RESPONSES_URL` when needed
    - `OPENAI_RUNTIME`
    - `OPENAI_REQUEST_HEADERS` when needed
    - `OPENAI_MODEL`
+5. Configure publishing:
    - `VERCEL_TOKEN`
    - `VERCEL_TEAM_ID` when deploying into a team scope
-4. Deploy. Railway will run `npx prisma migrate deploy` before switching traffic and will health check `GET /health`.
+6. Install dependencies:
+   - `npm install`
+7. Generate Prisma client:
+   - `npx prisma generate`
+8. Apply migrations:
+   - `npx prisma migrate deploy`
+9. Start the app:
+   - `npm run dev`
 
-Workspace previews now proxy through `/preview/<projectId>` instead of exposing `127.0.0.1` directly. The starter Next.js workspace template reads `ATOMS_PREVIEW_BASE_PATH` so its asset URLs stay inside the proxied preview path.
+## Environment notes
+
+Important runtime variables:
+
+- `DATABASE_URL`: required for the app runtime
+- `DIRECT_URL`: recommended for Prisma CLI and migrations
+- `OPENAI_API_KEY`: required for model access
+- `OPENAI_MODEL`: model identifier used for new runs
+- `VERCEL_TOKEN`: required for the publish flow
+- `PUBLISH_DAILY_LIMIT_PER_USER`: daily publish cap per user
+- `RUN_MAX_STEPS`: max steps allowed per run
+- `SNAPSHOT_MAX_SIZE_MB`: snapshot upload size cap
+
+Project snapshots are stored locally under `.data/snapshots/`.
+Workspaces and restored files are stored under `.data/workspaces/` unless `ATOMS_DATA_ROOT` or Railway volume storage overrides the location.
+
+## Railway deployment
+
+This repository includes [`railway.json`](/Users/bytedance/atoms_project/railway.json), which defines:
+
+- Railpack-based builds
+- `npx prisma migrate deploy` as a pre-deploy step
+- health checks on `GET /health`
+- service startup through `npm run start -- --hostname 0.0.0.0 --port $PORT`
+
+Recommended Railway setup:
+
+1. Create a Railway service from this repository.
+2. Attach a persistent volume.
+3. Provide the same runtime environment variables used locally.
+4. Deploy the service.
+
+The current Railway service domain is:
+
+- [web-production-77ec0.up.railway.app](https://web-production-77ec0.up.railway.app)
+
+## Testing
+
+Useful commands:
+
+- `npm test`
+- `npm test -- tests/app/login.test.tsx tests/components/auth-form.test.tsx`
+- `npm run build`
+
+Note that `npm run build` requires the database environment to be present because Prisma config resolves its datasource URL during build setup.
+
+## Repository state note
+
+This workspace may contain local-only changes that are not yet committed or pushed. Check git status before publishing or sharing repository state as final.

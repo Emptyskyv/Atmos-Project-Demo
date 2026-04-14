@@ -224,14 +224,18 @@ export function createToolExecutor() {
             const beforeFiles = await localWorkspace.listFiles(project.id)
             const targetPath = input.cwd && input.cwd !== '.'
               ? await localWorkspace.resolveWorkspacePath(project.id, input.cwd)
-              : { absolutePath: workspaceDir }
-            const output = await processManager.run(project.id, input.command, targetPath.absolutePath)
+              : null
+            const output = await processManager.run(project.id, input.command, {
+              workspaceDir,
+              cwd: targetPath?.absolutePath,
+            })
             const afterFiles = await localWorkspace.listFiles(project.id)
             const fileDelta = diffWorkspaceFiles(beforeFiles, afterFiles)
 
             return {
               output: {
                 command: input.command,
+                cwd: output.cwd,
                 exitCode: output.exitCode,
                 output: output.output,
               },

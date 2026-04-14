@@ -87,8 +87,12 @@ async function loadRunInputText(
   return typeof userMessage?.payload.text === 'string' ? userMessage.payload.text : null
 }
 
+function formatToolLogLine(line: NonNullable<ToolResultPayload['logs']>[number]) {
+  return `[${line.stream}] ${line.text}`
+}
+
 function toToolLogLines(result: Pick<ToolResultPayload, 'logs'>) {
-  return result.logs?.map((line) => line.text) ?? []
+  return result.logs?.map(formatToolLogLine) ?? []
 }
 
 export function buildRunRoutes(deps: RunRouteDeps = {}) {

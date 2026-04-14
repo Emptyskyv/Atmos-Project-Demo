@@ -47,14 +47,14 @@ export default function AuthForm({ initialMode = 'login' }: AuthFormProps) {
 
   return (
     <div className="grid gap-5 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_14px_34px_rgb(34_32_28/10%)]">
-      <div className="flex items-center justify-between gap-3">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <p className="workspace-kicker">Account</p>
           <h1 className="mt-2 text-3xl font-semibold text-[var(--foreground)]">
             {mode === 'login' ? 'Sign in to Atoms' : 'Create your Atoms account'}
           </h1>
         </div>
-        <div className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] p-1">
+        <div className="inline-flex shrink-0 rounded-full border border-[var(--border)] bg-[var(--surface-strong)] p-1">
           {(['login', 'register'] as const).map((candidate) => (
             <button
               key={candidate}

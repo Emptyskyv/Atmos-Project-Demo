@@ -35,6 +35,72 @@ type ApplyToolResultArgs = {
   result: ToolResultPayload
 }
 
+type PersistedMessageItem = {
+  id: string
+  kind: string
+  text?: string
+  summary?: string
+  logs?: string[]
+  toolName?: string
+  output?: unknown
+}
+
+function formatTerminalExitLine(exitCode: number, durationMs?: number) {
+  if (typeof durationMs === 'number') {
+    return `[exit ${exitCode}] completed in ${(durationMs / 1000).toFixed(1)}s`
+  }
+
+  return `[exit ${exitCode}] completed`
+}
+
+function toTerminalLinesFromBashResult({
+  command,
+  cwd,
+  exitCode,
+  durationMs,
+  logs,
+}: {
+  command: string
+  cwd?: string | null
+  exitCode: number
+  durationMs?: number
+  logs?: ToolResultPayload['logs']
+}) {
+  return [
+    ...(cwd ? [`[cwd] ${cwd}`] : []),
+    `$ ${command}`,
+    ...(
+      logs && logs.length > 0
+        ? logs.map((line) => `[${line.stream}] ${line.text}`)
+        : ['[info] Command completed with no output.']
+    ),
+    formatTerminalExitLine(exitCode, durationMs),
+  ]
+}
+
+function toTerminalLinesFromPersistedToolLog(item: PersistedMessageItem) {
+  if (item.kind !== 'tool_log' || item.toolName !== 'bash') {
+    return []
+  }
+
+  const output = item.output && typeof item.output === 'object'
+    ? (item.output as { command?: unknown; cwd?: unknown; exitCode?: unknown })
+    : null
+  const command = typeof output?.command === 'string' ? output.command : 'bash'
+  const cwd = typeof output?.cwd === 'string' ? output.cwd : null
+  const exitCode = typeof output?.exitCode === 'number' ? output.exitCode : 0
+  const logs = Array.isArray(item.logs) && item.logs.length > 0
+    ? item.logs
+    : ['[info] Command completed with no output.']
+
+  return [
+    ...(cwd ? [`[cwd] ${cwd}`] : []),
+    `$ ${command}`,
+    ...logs,
+    formatTerminalExitLine(exitCode),
+  ]
+}
+
 type WorkspaceState = {
   projectName: string
   items: TimelineItem[]
@@ -117,10 +183,35 @@ export default function useWorkspaceState(projectId: string): WorkspaceState {
       })
     }
 
-    const nextTerminalLines =
-      result.logs?.map((line) => line.text) ??
-      [`${call.name} completed${result.isError ? ' with errors' : ''}`]
-    setTerminalLines((previousLines) => [...previousLines, ...nextTerminalLines])
+    if (call.name === 'bash') {
+      const output = result.output && typeof result.output === 'object'
+        ? (result.output as { command?: unknown; cwd?: unknown; exitCode?: unknown })
+        : null
+      const command = typeof output?.command === 'string'
+        ? output.command
+        : typeof call.input.command === 'string'
+          ? call.input.command
+          : 'bash'
+      const cwd = typeof output?.cwd === 'string'
+        ? output.cwd
+        : typeof call.input.cwd === 'string'
+          ? call.input.cwd
+          : null
+      const exitCode = typeof output?.exitCode === 'number' ? output.exitCode : result.isError ? 1 : 0
+      const nextTerminalLines = toTerminalLinesFromBashResult({
+        command,
+        cwd,
+        exitCode,
+        durationMs: result.durationMs,
+        logs: result.logs,
+      })
+
+      setTerminalLines((previousLines) => [
+        ...previousLines,
+        ...(previousLines.length > 0 ? [''] : []),
+        ...nextTerminalLines,
+      ])
+    }
 
     if (result.previewUrl !== undefined) {
       setPreviewUrl(result.previewUrl ?? null)
@@ -181,13 +272,7 @@ export default function useWorkspaceState(projectId: string): WorkspaceState {
           }
         }
         const messagesBody = (await messagesResponse.json()) as {
-          items?: Array<{
-            id: string
-            kind: string
-            text?: string
-            summary?: string
-            logs?: string[]
-          }>
+          items?: PersistedMessageItem[]
         }
 
         if (isCancelled) {
@@ -200,10 +285,13 @@ export default function useWorkspaceState(projectId: string): WorkspaceState {
           : []
         setFiles(workspaceFiles)
         setActiveFilePath(workspaceFiles[0]?.path ?? null)
-        setTerminalLines([])
+        const messageItems = messagesBody.items ?? []
+        setTerminalLines(
+          messageItems.flatMap((item) => toTerminalLinesFromPersistedToolLog(item)),
+        )
         setPreviewUrl(projectBody.workspace?.previewUrl ?? projectBody.project?.deployedUrl ?? null)
         setItems(
-          (messagesBody.items ?? [])
+          messageItems
             .flatMap<TimelineItem>((item) => {
               if (item.kind === 'user' || item.kind === 'assistant') {
                 return [

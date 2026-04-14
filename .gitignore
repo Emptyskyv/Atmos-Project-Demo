@@ -12,3 +12,6 @@ test-results/
 .env.*.local
 dist/
 build/
+.vercel
+.playwright-cli/
+*.tsbuildinfo

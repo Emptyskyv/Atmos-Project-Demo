@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { Dispatch, SetStateAction } from 'react'
+import type { Dispatch, ReactNode, SetStateAction } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import CodePanel from '@/src/frontend/components/workspace/CodePanel'
 import FileTree from '@/src/frontend/components/workspace/FileTree'
@@ -84,6 +84,16 @@ vi.mock('@/src/frontend/hooks/useWorkspaceState', () => ({
 
 vi.mock('@/src/frontend/hooks/useRunStream', () => ({
   default: (...args: unknown[]) => runStreamStub(...args),
+}))
+
+vi.mock('@/src/frontend/components/auth/SignOutButton', () => ({
+  default: () => <button type="button">Sign out</button>,
+}))
+
+vi.mock('react-resizable-panels', () => ({
+  Panel: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Group: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Separator: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }))
 
 describe('workspace runtime panels', () => {
@@ -215,6 +225,37 @@ describe('workspace runtime panels', () => {
         name: /open in new tab/i,
       }),
     ).toBeVisible()
+  })
+
+  it('uses the composer send button as the only run trigger', async () => {
+    const startRun = vi.fn()
+
+    workspaceStateStub.mockReturnValue({
+      projectName: 'Atoms Runtime',
+      items: [],
+      setItems: vi.fn(),
+      activeRunId: null,
+      files: runtimeFiles,
+      activeFilePath: 'src/App.tsx',
+      activeFileContents: 'export function App() { return <main>App</main> }',
+      terminalLines: [],
+      previewUrl: null,
+      selectFile: vi.fn(),
+      applyToolResult: vi.fn(),
+    })
+    runStreamStub.mockReturnValue({
+      isRunning: false,
+      startRun,
+    })
+
+    render(<WorkspaceShell projectId="proj_1" />)
+
+    expect(screen.queryByRole('button', { name: /^run$/i })).not.toBeInTheDocument()
+
+    await userEvent.type(screen.getByPlaceholderText('Describe what to build next...'), 'Build a dashboard')
+    await userEvent.click(screen.getByRole('button', { name: /^send$/i }))
+
+    expect(startRun).toHaveBeenCalledWith('Build a dashboard')
   })
 
   it('publishes current files via snapshot + publish APIs, streams SSE updates, and updates preview', async () => {

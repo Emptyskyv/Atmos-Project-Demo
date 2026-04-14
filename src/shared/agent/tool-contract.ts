@@ -52,7 +52,7 @@ export type CoreToolName = (typeof CORE_TOOL_NAMES)[number]
 
 export const CORE_TOOL_DESCRIPTIONS: Record<CoreToolName, string> = {
   bash:
-    'Execute a shell command inside the project workspace. Use it for installs, builds, tests, and starting local preview servers.',
+    'Execute a shell command inside the project workspace. Commands run in a persistent shell session, so the current working directory and exported environment variables carry across subsequent bash calls. Use it for installs, builds, tests, and starting local preview servers.',
   read:
     'Read a file from the project workspace. Optionally limit the response to a line range.',
   write:

@@ -4,6 +4,8 @@ import CreateProjectForm from '@/src/frontend/components/workspace/CreateProject
 import { createPrismaRepository } from '@/src/backend/data/prisma'
 import { getCurrentUser } from '@/src/backend/auth/current-user'
 
+import SignOutButton from '@/src/frontend/components/auth/SignOutButton'
+
 export default async function DashboardPage() {
   const user = await getCurrentUser()
 
@@ -18,7 +20,10 @@ export default async function DashboardPage() {
     <main className="mx-auto min-h-screen w-full max-w-5xl px-6 py-10">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="workspace-kicker">Dashboard</p>
+          <div className="flex items-center gap-3">
+            <p className="workspace-kicker">Dashboard</p>
+            <SignOutButton />
+          </div>
           <h1 className="mt-2 text-3xl font-semibold text-[var(--foreground)]">Welcome back</h1>
           <p className="mt-2 text-sm text-[var(--muted)]">{user.email}</p>
         </div>

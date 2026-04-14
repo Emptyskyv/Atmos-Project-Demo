@@ -1,5 +1,7 @@
 import ToolLogAccordion from '@/src/frontend/components/workspace/ToolLogAccordion'
 import type { TimelineItem } from '@/src/frontend/hooks/useWorkspaceState'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 type ChatPanelProps = {
   items: TimelineItem[]
@@ -18,13 +20,15 @@ export default function ChatPanel({ items }: ChatPanelProps) {
         return (
           <div key={item.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
             <div
-              className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
+              className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed overflow-x-auto ${
                 isUser
                   ? 'bg-[var(--foreground)] text-[var(--surface-strong)]'
                   : 'border border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)]'
               }`}
             >
-              {item.content}
+              <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_pre]:bg-black/5 [&_pre]:p-2 [&_pre]:rounded-lg dark:[&_pre]:bg-white/5">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{item.content}</ReactMarkdown>
+              </div>
             </div>
           </div>
         )
