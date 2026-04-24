@@ -16,9 +16,9 @@ export function getTemplateFiles(templateKey: string): WorkspaceTemplateFile[] {
           name: 'atoms-generated-app',
           private: true,
           scripts: {
-            dev: 'next dev --hostname 0.0.0.0 --port 3000',
+            dev: 'next dev --hostname ${HOST:-127.0.0.1} --port ${PORT:-3000}',
             build: 'next build',
-            start: 'next start --hostname 0.0.0.0 --port 3000',
+            start: 'next start --hostname ${HOST:-127.0.0.1} --port ${PORT:-3000}',
           },
           dependencies: {
             next: '^15.0.0',

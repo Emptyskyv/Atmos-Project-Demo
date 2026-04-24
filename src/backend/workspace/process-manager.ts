@@ -4,6 +4,7 @@ import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
+import { buildPreviewProxyBasePath } from '@/src/backend/workspace/preview-path'
 
 const execFileAsync = promisify(execFile)
 
@@ -458,6 +459,7 @@ export function createProcessManager() {
             PORT: String(port),
             HOST: '127.0.0.1',
             npm_config_port: String(port),
+            ATOMS_PREVIEW_BASE_PATH: buildPreviewProxyBasePath(projectId),
             BROWSER: 'none',
             CI: '1',
           },

@@ -47,6 +47,45 @@ describe('process manager', () => {
     }
   })
 
+  it('passes preview host, port, and base path env vars to managed servers', async () => {
+    const workspaceDir = await createTempWorkspace()
+    const manager = createProcessManager()
+    try {
+      await writeFile(
+        path.join(workspaceDir, 'serve.js'),
+        [
+          'require("node:http").createServer((_, res) => {',
+          '  res.setHeader("content-type", "application/json");',
+          '  res.end(JSON.stringify({',
+          '    host: process.env.HOST,',
+          '    port: process.env.PORT,',
+          '    npmPort: process.env.npm_config_port,',
+          '    previewBasePath: process.env.ATOMS_PREVIEW_BASE_PATH',
+          '  }));',
+          '}).listen(process.env.PORT, process.env.HOST);',
+          'setInterval(() => {}, 1 << 30)',
+        ].join('\n'),
+      )
+
+      const result = await manager.run('proj-preview-env', 'node serve.js', {
+        workspaceDir,
+      })
+      const response = await fetch(result.previewUrl ?? '')
+      const body = await response.json()
+
+      expect(body).toEqual({
+        host: '127.0.0.1',
+        port: expect.stringMatching(/^\d+$/),
+        npmPort: expect.stringMatching(/^\d+$/),
+        previewBasePath: '/preview/proj-preview-env',
+      })
+      expect(body.port).toBe(String(new URL(result.previewUrl ?? '').port))
+      expect(body.npmPort).toBe(body.port)
+    } finally {
+      await manager.dispose('proj-preview-env')
+    }
+  })
+
   it('persists shell cwd and exported env across bash commands for a project', async () => {
     const workspaceDir = await createTempWorkspace()
     await mkdir(path.join(workspaceDir, 'subdir'))
