@@ -15,9 +15,12 @@ const eslintConfig = [
     ignores: [
       'node_modules/**',
       '.next/**',
+      '.vercel/**',
+      '.playwright-cli/**',
       '.data/**',
       '.worktrees/**',
       'worktrees/**',
+      'output/**',
       'out/**',
       'build/**',
       'next-env.d.ts',

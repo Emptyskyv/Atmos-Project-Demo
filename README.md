@@ -127,6 +127,20 @@ Important runtime variables:
 Project snapshots are stored locally under `.data/snapshots/`.
 Workspaces and restored files are stored under `.data/workspaces/` unless `ATOMS_DATA_ROOT` or Railway volume storage overrides the location.
 
+When using Supabase Postgres from Railway, use a Supabase pooler connection string for both
+`DATABASE_URL` and `DIRECT_URL`. The Prisma PostgreSQL adapter currently needs libpq-compatible
+TLS semantics with Supabase pooler certificates, so include these query parameters:
+
+```text
+sslmode=require&uselibpqcompat=true
+```
+
+Example shape:
+
+```text
+postgresql://postgres.<project-ref>:<password>@<region>.pooler.supabase.com:5432/postgres?sslmode=require&uselibpqcompat=true
+```
+
 ## Railway deployment
 
 This repository includes [`railway.json`](/Users/bytedance/atoms_project/railway.json), which defines:
@@ -142,6 +156,20 @@ Recommended Railway setup:
 2. Attach a persistent volume.
 3. Provide the same runtime environment variables used locally.
 4. Deploy the service.
+
+If GitHub auto-deploy is not connected, deploy the currently linked Railway service manually:
+
+```bash
+npx @railway/cli deployment up
+```
+
+Useful post-deploy checks:
+
+```bash
+npx @railway/cli deployment list
+curl -sS https://web-production-77ec0.up.railway.app/health
+curl -sS https://web-production-77ec0.up.railway.app/version
+```
 
 The current Railway service domain is:
 
