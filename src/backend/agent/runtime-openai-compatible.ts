@@ -20,7 +20,12 @@ type CompatibleRuntimeOptions = {
 
 type ChatMessage =
   | { role: 'system' | 'user'; content: string }
-  | { role: 'assistant'; content: string | null; tool_calls?: ChatToolCall[] }
+  | {
+      role: 'assistant'
+      content: string | null
+      reasoning_content?: string | null
+      tool_calls?: ChatToolCall[]
+    }
   | { role: 'tool'; tool_call_id: string; content: string }
 
 type ChatToolCall = {
@@ -41,6 +46,7 @@ type ChatChunk = {
   choices?: Array<{
     delta?: {
       content?: string | null
+      reasoning_content?: string | null
       tool_calls?: Array<{
         index?: number
         id?: string
@@ -429,6 +435,7 @@ export function createOpenAiCompatibleRuntime(options: CompatibleRuntimeOptions 
     async *stream(input) {
       const messageId = `msg_assistant_${input.run.id}`
       let assistantText = ''
+      let reasoningText = ''
       const toolCalls = new Map<number, ChatToolCall>()
       let finishReason: string | null = null
 
@@ -450,6 +457,7 @@ export function createOpenAiCompatibleRuntime(options: CompatibleRuntimeOptions 
           finishReason = choice.finish_reason ?? finishReason
 
           const contentDelta = choice.delta?.content ?? ''
+          const reasoningDelta = choice.delta?.reasoning_content ?? ''
 
           if (typeof contentDelta === 'string' && contentDelta.length > 0) {
             assistantText += contentDelta
@@ -458,6 +466,10 @@ export function createOpenAiCompatibleRuntime(options: CompatibleRuntimeOptions 
               messageId,
               delta: contentDelta,
             }
+          }
+
+          if (typeof reasoningDelta === 'string' && reasoningDelta.length > 0) {
+            reasoningText += reasoningDelta
           }
 
           for (const partialToolCall of choice.delta?.tool_calls ?? []) {
@@ -501,6 +513,7 @@ export function createOpenAiCompatibleRuntime(options: CompatibleRuntimeOptions 
                 {
                   role: 'assistant',
                   content: assistantText.length > 0 ? assistantText : null,
+                  reasoning_content: reasoningText.length > 0 ? reasoningText : null,
                   tool_calls: [nextToolCall],
                 },
               ],

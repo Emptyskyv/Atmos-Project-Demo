@@ -289,6 +289,150 @@ describe('createOpenAiCompatibleRuntime', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1)
   })
 
+  it('preserves reasoning_content across tool-call resume turns', async () => {
+    const repository = createMemoryRepository()
+    const run = await repository.createRun({
+      projectId: 'proj_1',
+      userId: 'usr_1',
+      model: 'deepseek-v4-flash',
+      status: 'running',
+    })
+
+    const firstTurnFetch = vi.fn(async () =>
+      createSseResponse([
+        {
+          id: 'chatcmpl_reasoning_1',
+          choices: [
+            {
+              index: 0,
+              delta: {
+                reasoning_content: 'Need to inspect the file before editing.',
+                tool_calls: [
+                  {
+                    index: 0,
+                    id: 'call_reasoning_123',
+                    type: 'function',
+                    function: {
+                      name: 'read',
+                      arguments: '{"path":"app/page.tsx"}',
+                    },
+                  },
+                ],
+              },
+              finish_reason: null,
+            },
+          ],
+        },
+        {
+          id: 'chatcmpl_reasoning_1',
+          choices: [{ index: 0, delta: {}, finish_reason: 'tool_calls' }],
+        },
+        '[DONE]',
+      ]),
+    )
+
+    const firstRuntime = createOpenAiCompatibleRuntime({
+      config: {
+        apiKey: 'sk-test',
+        baseURL: 'https://gateway.example.com/v1',
+      },
+      fetchImpl: firstTurnFetch as typeof fetch,
+    })
+
+    const firstEvents = []
+    for await (const event of firstRuntime.stream({
+      repository,
+      run,
+      userMessage: 'Inspect the homepage',
+    })) {
+      firstEvents.push(event)
+    }
+
+    expect(firstEvents).toHaveLength(1)
+    expect(firstEvents[0]).toMatchObject({
+      type: 'tool_request',
+      toolCall: {
+        toolCallId: 'call_reasoning_123',
+        name: 'read',
+        input: {
+          path: 'app/page.tsx',
+        },
+      },
+    })
+
+    const resumedRun = await repository.updateRun(run.id, {
+      waitingToolCallId: 'call_reasoning_123',
+      serializedState: (firstEvents[0] as { serializedState: string }).serializedState,
+    })
+
+    await repository.createToolCall({
+      runId: resumedRun.id,
+      projectId: resumedRun.projectId,
+      userId: resumedRun.userId,
+      toolCallId: 'call_reasoning_123',
+      name: 'read',
+      input: {
+        path: 'app/page.tsx',
+      },
+      status: 'completed_server',
+    })
+    await repository.updateToolCall('call_reasoning_123', {
+      output: { path: 'app/page.tsx', content: '<main>Hello</main>' },
+      clientSequence: 1,
+    })
+
+    const secondTurnFetch = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body))
+      expect(body.messages[2]).toEqual({
+        role: 'assistant',
+        content: null,
+        reasoning_content: 'Need to inspect the file before editing.',
+        tool_calls: [
+          {
+            id: 'call_reasoning_123',
+            type: 'function',
+            function: {
+              name: 'read',
+              arguments: '{"path":"app/page.tsx"}',
+            },
+          },
+        ],
+      })
+
+      return createSseResponse([
+        {
+          id: 'chatcmpl_reasoning_2',
+          choices: [{ index: 0, delta: { content: 'Done.' }, finish_reason: null }],
+        },
+        {
+          id: 'chatcmpl_reasoning_2',
+          choices: [{ index: 0, delta: {}, finish_reason: 'stop' }],
+        },
+        '[DONE]',
+      ])
+    })
+
+    const secondRuntime = createOpenAiCompatibleRuntime({
+      config: {
+        apiKey: 'sk-test',
+        baseURL: 'https://gateway.example.com/v1',
+      },
+      fetchImpl: secondTurnFetch as typeof fetch,
+    })
+
+    const resumedEvents = []
+    for await (const event of secondRuntime.stream({
+      repository,
+      run: resumedRun,
+    })) {
+      resumedEvents.push(event)
+    }
+
+    expect(resumedEvents.at(-1)).toEqual({
+      type: 'run_completed',
+    })
+  })
+
   it('retries transient arrearage gateway errors before failing the run', async () => {
     const repository = createMemoryRepository()
     const run = await repository.createRun({
